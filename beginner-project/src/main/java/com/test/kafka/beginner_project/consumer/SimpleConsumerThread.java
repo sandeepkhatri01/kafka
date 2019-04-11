@@ -18,10 +18,14 @@ public class SimpleConsumerThread {
 
 	final static Logger logger = LoggerFactory.getLogger(SimpleConsumerThread.class);
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InterruptedException {
 
-		// subscribe to topic(s)
-		kafkaConsumer.subscribe(Collections.singleton("topic1"));
+		final CountDownLatch latch = new CountDownLatch(1);
+
+		Thread thread = new Thread(new ConsumerThread(latch));
+		thread.start();
+
+		latch.await();
 
 	}
 
@@ -44,6 +48,7 @@ public class SimpleConsumerThread {
 			properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
 			properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 			kafkaConsumer = new KafkaConsumer<String, String>(properties);
+			kafkaConsumer.subscribe(Collections.singleton("topic1"));
 		}
 
 		public void run() {
@@ -58,6 +63,10 @@ public class SimpleConsumerThread {
 				}
 			} catch (WakeupException wakeupException) {
 				logger.error("Info received shutdown signal");
+			} finally {
+				kafkaConsumer.close();
+				// tell our main code we are done with consumer
+				latch.countDown();
 			}
 
 		}
